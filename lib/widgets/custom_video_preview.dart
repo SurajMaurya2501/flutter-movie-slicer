@@ -35,8 +35,8 @@ class CustomVideoPreview extends StatelessWidget {
         Positioned.fill(
             child: videoController.value.isPlaying == false
                 ? Icon(
-                    Icons.play_circle_sharp,
-                    size: 50,
+                    Icons.play_arrow,
+                    size: 30,
                   )
                 : SizedBox.shrink()),
       ],

@@ -97,29 +97,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   ),
                   const SizedBox(height: 10),
 
-                  QualityToggleCard(
-                    initialValue: false, // Default to fast mode
-                    onChanged: (isHighQuality) {
-                      // Update your FFmpeg command generation logic
-                      setState(() {
-                        _highQualityMode = isHighQuality;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 10),
-
-                  CustomFileSelectionButton(
-                      context: context,
-                      isDarkMode: isDarkMode,
-                      onPressed: () {
-                        setState(() {
-                          videoController.pause();
-                          _videoFile = null;
-                        });
-                      },
-                      pickVideo: _pickVideo,
-                      videoFile: _videoFile),
-                  const SizedBox(height: 20),
+                  // QualityToggleCard(
+                  //   initialValue: false, // Default to fast mode
+                  //   onChanged: (isHighQuality) {
+                  //     // Update your FFmpeg command generation logic
+                  //     setState(() {
+                  //       _highQualityMode = isHighQuality;
+                  //     });
+                  //   },
+                  // ),
+                  // const SizedBox(height: 10),
 
                   if (_videoFile != null && _videoFile!.existsSync())
                     GestureDetector(
@@ -140,22 +127,40 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
                   if (_videoFile != null) const SizedBox(height: 20),
 
-                  CustomProcessingCard(
-                    context: context,
-                    isDarkMode: isDarkMode,
-                    cancelProcess: _cancelProcess,
-                    currentOperation: _currentOperation,
-                    getRemainingTime: _getRemainingTime,
-                    isCreatingZip: _isCreatingZip,
-                    isProcessing: _isProcessing,
-                    progress: progress,
-                    pulseAnimation: _pulseAnimation,
-                    shouldCancel: _shouldCancel,
-                    splitAndZip: _splitAndZip,
-                  ),
+                  CustomFileSelectionButton(
+                      context: context,
+                      isDarkMode: isDarkMode,
+                      onPressed: () {
+                        setState(() {
+                          videoController.pause();
+                          _videoFile = null;
+                        });
+                      },
+                      pickVideo: _pickVideo,
+                      videoFile: _videoFile),
                   const SizedBox(height: 20),
 
-                  if (_zipPath != null) _buildCreateZipButton(context)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      CustomProcessingCard(
+                        context: context,
+                        isDarkMode: isDarkMode,
+                        cancelProcess: _cancelProcess,
+                        currentOperation: _currentOperation,
+                        getRemainingTime: _getRemainingTime,
+                        isCreatingZip: _isCreatingZip,
+                        isProcessing: _isProcessing,
+                        progress: progress,
+                        pulseAnimation: _pulseAnimation,
+                        shouldCancel: _shouldCancel,
+                        splitAndZip: _splitAndZip,
+                      ),
+                      if (_zipPath != null) _buildCreateZipButton(context)
+                    ],
+                  ),
+
+                  // const SizedBox(height: 20),
 
                   // const SizedBox(height: 20),
                   // if (_zipPath != null) ...[
