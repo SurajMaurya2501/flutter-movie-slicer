@@ -33,7 +33,7 @@ class CustomEnhancedAppbar extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha:  0.2),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -44,7 +44,7 @@ class CustomEnhancedAppbar extends StatelessWidget {
         opacity: 1.0,
         duration: const Duration(milliseconds: 300),
         child: const Text(
-          'MovieSlicer',
+          'Movie Slicer',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 24,

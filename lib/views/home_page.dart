@@ -46,11 +46,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   bool _shouldCancel = false;
   double progress = 0.0;
   bool _highQualityMode = false;
-  late VideoPlayerController videoController;
+  VideoPlayerController? videoController;
 
   @override
   void dispose() {
-    videoController.dispose();
+    videoController?.dispose();
     super.dispose();
   }
 
@@ -108,20 +108,22 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   // ),
                   // const SizedBox(height: 10),
 
-                  if (_videoFile != null && _videoFile!.existsSync())
+                  if (_videoFile != null &&
+                      _videoFile!.existsSync() &&
+                      videoController != null)
                     GestureDetector(
                       onTap: () {
                         setState(() {
-                          log(videoController.value.aspectRatio.toString());
-                          videoController.value.isPlaying
-                              ? videoController.pause()
-                              : videoController.play();
+                          log(videoController!.value.aspectRatio.toString());
+                          videoController!.value.isPlaying
+                              ? videoController!.pause()
+                              : videoController!.play();
                         });
                       },
                       child: CustomVideoPreview(
                         videoDuration: _videoDuration,
                         videoFile: _videoFile,
-                        videoController: videoController,
+                        videoController: videoController!,
                       ),
                     ),
 
@@ -132,33 +134,30 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       isDarkMode: isDarkMode,
                       onPressed: () {
                         setState(() {
-                          videoController.pause();
+                          videoController?.pause();
                           _videoFile = null;
                         });
                       },
                       pickVideo: _pickVideo,
                       videoFile: _videoFile),
-                  const SizedBox(height: 20),
 
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      CustomProcessingCard(
-                        context: context,
-                        isDarkMode: isDarkMode,
-                        cancelProcess: _cancelProcess,
-                        currentOperation: _currentOperation,
-                        getRemainingTime: _getRemainingTime,
-                        isCreatingZip: _isCreatingZip,
-                        isProcessing: _isProcessing,
-                        progress: progress,
-                        pulseAnimation: _pulseAnimation,
-                        shouldCancel: _shouldCancel,
-                        splitAndZip: _splitAndZip,
-                      ),
-                      if (_zipPath != null) _buildCreateZipButton(context)
-                    ],
+                  SizedBox(height: 20),
+
+                  CustomProcessingCard(
+                    context: context,
+                    isDarkMode: isDarkMode,
+                    cancelProcess: _cancelProcess,
+                    currentOperation: _currentOperation,
+                    getRemainingTime: _getRemainingTime,
+                    isCreatingZip: _isCreatingZip,
+                    isProcessing: _isProcessing,
+                    progress: progress,
+                    pulseAnimation: _pulseAnimation,
+                    shouldCancel: _shouldCancel,
+                    splitAndZip: _splitAndZip,
                   ),
+
+                  // if (_zipPath != null) _buildCreateZipButton(context),
 
                   // const SizedBox(height: 20),
 
@@ -487,17 +486,29 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         'webm'
       ];
       if (allowedVideoExtensions.contains(ext)) {
-        // Get video duration
+        // Get video duration via FFprobe (avoids ExoPlayer decoder issues)
         Duration? duration = await _getVideoDuration(File(path));
+
+        // Dispose old controller before creating a new one
+        await videoController?.dispose();
+
+        final newController = VideoPlayerController.file(File(path));
+        try {
+          await newController.initialize();
+        } catch (e) {
+          log('VideoPlayerController init error: $e');
+        }
+
+        // Rebuild UI on playback state changes (play/pause)
+        newController.addListener(() {
+          if (mounted) setState(() {});
+        });
 
         setState(() {
           _videoFile = File(path);
-          videoController = VideoPlayerController.file(
-            _videoFile!,
-          )..initialize();
-
-          _videoDuration = duration; // Store the duration
-          _zipPath = null; // Reset previous results
+          videoController = newController;
+          _videoDuration = duration;
+          _zipPath = null;
         });
       } else {
         _showInvalidFileDialog();
@@ -507,13 +518,20 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   Future<Duration?> _getVideoDuration(File videoFile) async {
     try {
-      final videoPlayerController = VideoPlayerController.file(videoFile);
-      await videoPlayerController.initialize();
-      final duration = videoPlayerController.value.duration;
-      await videoPlayerController.dispose(); // Clean up
-      return duration;
+      final session = await FFprobeKit.getMediaInformation(videoFile.path);
+      final information = session.getMediaInformation();
+      if (information != null) {
+        final durationStr = information.getDuration();
+        if (durationStr != null) {
+          final seconds = double.tryParse(durationStr);
+          if (seconds != null) {
+            return Duration(milliseconds: (seconds * 1000).round());
+          }
+        }
+      }
+      return null;
     } catch (e) {
-      print('Error getting video duration: $e');
+      log('Error getting video duration: $e');
       return null;
     }
   }
@@ -539,7 +557,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Future<void> _splitAndZip() async {
-    if (_videoFile == null || _secondsController.text.isEmpty) return;
+    if (_videoFile == null || _secondsController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            duration: Duration(seconds: 2),
+            content:
+                Text('Please select a video and set video split duration')),
+      );
+      return;
+    }
+    ;
 
     setState(() {
       _isProcessing = true;
