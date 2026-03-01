@@ -18,7 +18,6 @@ import 'package:video_cutter/widgets/custom_enhanced_appbar.dart';
 import 'package:video_cutter/widgets/custom_enhanced_setting_card.dart';
 import 'package:video_cutter/widgets/custom_file_selection_button.dart';
 import 'package:video_cutter/widgets/custom_processing_card.dart';
-import 'package:video_cutter/widgets/custom_toggle_widget.dart';
 import 'package:video_cutter/widgets/custom_video_preview.dart';
 import 'package:video_player/video_player.dart';
 import 'package:media_scanner/media_scanner.dart';
@@ -75,7 +74,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDarkMode = themeProvider.themeMode == ThemeMode.dark;
+    // final isDarkMode = themeProvider.themeMode == ThemeMode.dark;
+    final isDarkMode = true;
 
     return Scaffold(
       backgroundColor: isDarkMode ? Colors.grey[900] : Colors.grey[50],
@@ -135,6 +135,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       onPressed: () {
                         setState(() {
                           videoController?.pause();
+                          videoController = null;
                           _videoFile = null;
                         });
                       },
@@ -427,11 +428,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               icon: Icons.content_cut,
               text: 'Split video into chunks',
             ),
-            _buildHelpItem(
-              context,
-              icon: Icons.download,
-              text: 'Download all chunks as ZIP',
-            ),
+            // _buildHelpItem(
+            //   context,
+            //   icon: Icons.download,
+            //   text: 'Download all chunks as ZIP',
+            // ),
             _buildHelpItem(
               context,
               icon: Icons.share,
@@ -470,49 +471,27 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     }
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['mp4', 'mov', 'avi', 'mkv', 'webm'],
+      allowedExtensions: ['mp4', 'mov', 'mkv', 'webm'],
       allowMultiple: false,
     );
 
     if (result != null && result.files.single.path != null) {
       String path = result.files.single.path!;
-      String ext = path.split('.').last.toLowerCase();
-
-      List<String> allowedVideoExtensions = [
-        'mp4',
-        'mov',
-        'avi',
-        'mkv',
-        'webm'
-      ];
-      if (allowedVideoExtensions.contains(ext)) {
-        // Get video duration via FFprobe (avoids ExoPlayer decoder issues)
-        Duration? duration = await _getVideoDuration(File(path));
-
-        // Dispose old controller before creating a new one
-        await videoController?.dispose();
-
-        final newController = VideoPlayerController.file(File(path));
-        try {
-          await newController.initialize();
-        } catch (e) {
-          log('VideoPlayerController init error: $e');
-        }
-
-        // Rebuild UI on playback state changes (play/pause)
-        newController.addListener(() {
-          if (mounted) setState(() {});
-        });
-
-        setState(() {
-          _videoFile = File(path);
-          videoController = newController;
-          _videoDuration = duration;
-          _zipPath = null;
-        });
-      } else {
-        _showInvalidFileDialog();
+      _videoFile = File(path);
+      Duration? duration = await _getVideoDuration(_videoFile!);
+      videoController = null;
+      final newController = VideoPlayerController.file(_videoFile!);
+      try {
+        await newController.initialize();
+      } catch (e) {
+        log('VideoPlayerController init error: $e');
       }
+
+      setState(() {
+        videoController = newController;
+        _videoDuration = duration;
+        _zipPath = null;
+      });
     }
   }
 
@@ -557,7 +536,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Future<void> _splitAndZip() async {
-    if (_videoFile == null || _secondsController.text.isEmpty) {
+    if (_videoFile == null && _secondsController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             duration: Duration(seconds: 2),
@@ -565,14 +544,27 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 Text('Please select a video and set video split duration')),
       );
       return;
+    } else if (_videoFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            duration: Duration(seconds: 2),
+            content: Text('Please select a video file')),
+      );
+      return;
+    } else if (_secondsController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            duration: Duration(seconds: 2),
+            content: Text('Please set video split duration')),
+      );
+      return;
     }
-    ;
 
     setState(() {
       _isProcessing = true;
       progress = 0;
       _processingStartTime = DateTime.now();
-      _currentOperation = 'Analyzing video...';
+      _currentOperation = 'Processing Video...';
     });
 
     final shared = await SharedPreferences.getInstance();
@@ -644,15 +636,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       });
 
       // Run FFmpeg command
-      // final cmd =
-      //     '-i "${_videoFile!.path}" -f segment -segment_time $chunkSeconds -reset_timestamps 1 -c:v libx264 -c:a aac "$outputPath"';
-      // final cmd =
-      //     '-i "${_videoFile!.path}" -f segment -segment_time $chunkSeconds -reset_timestamps 1 -c:v libx264 -preset ultrafast -crf 23 -c:a aac "$outputPath"';
+      // Force keyframes at every segment boundary so splits are exact.
+      // Without -force_key_frames the encoder uses its default GOP size
+      // (250 frames ≈ 8 s at 30 fps), causing oversized chunks.
+      final cmd =
+          '-i "${_videoFile!.path}" -force_key_frames "expr:gte(t,n_forced*$chunkSeconds)" -f segment -segment_time $chunkSeconds -reset_timestamps 1 -c:v libx264 -preset ultrafast -crf 23 -c:a aac "$outputPath"';
       // final cmd =
       //     '-i "${_videoFile!.path}" -f segment -segment_time $chunkSeconds -reset_timestamps 1 -c copy "$outputPath"';
-      final cmd = _highQualityMode
-          ? '-i "${_videoFile!.path}" -f segment -segment_time $chunkSeconds -reset_timestamps 1 -c:v libx264 -preset ultrafast -crf 23 -c:a aac "$outputPath"'
-          : '-i "${_videoFile!.path}" -f segment -segment_time $chunkSeconds -reset_timestamps 1 -map 0 -c copy -movflags +faststart "$outputPath"';
+      // final cmd =
+      //  _highQualityMode
+      //     ?
+      // '-i "${_videoFile!.path}" -f segment -segment_time $chunkSeconds -reset_timestamps 1 -c:v libx264 -preset ultrafast -crf 23 -c:a aac "$outputPath"';
+      // : '-i "${_videoFile!.path}" -f segment -segment_time $chunkSeconds -reset_timestamps 1 -map 0 -c copy -movflags +faststart "$outputPath"';
       final session = await FFmpegKit.execute(cmd);
 
       final returnCode = await session.getReturnCode();
@@ -660,6 +655,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       if (returnCode!.isValueSuccess()) {
         _showSuccessDialog(context, chunkFolder.path);
         _videoFile = null;
+        _secondsController.clear();
         setState(() {});
       } else {
         if (mounted) {
@@ -873,7 +869,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                 ),
                               ),
                               Text(
-                                dirPath,
+                                dirPath.split("/").last,
                                 style: TextStyle(
                                   color: isDarkMode
                                       ? Colors.white70

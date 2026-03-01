@@ -38,21 +38,25 @@ class MyApp extends StatelessWidget {
 }
 
 class ThemeProvider with ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.light;
+  ThemeMode _themeMode = ThemeMode.system;
 
   ThemeMode get themeMode => _themeMode;
 
   void getThemeMode() async {
     final shared = await SharedPreferences.getInstance();
-    bool updatedDark = await shared.getBool("isDart") ?? false;
-    _themeMode = updatedDark ? ThemeMode.dark : ThemeMode.light;
+    final savedDark = shared.getBool("isDark");
+    if (savedDark == null) {
+      _themeMode = ThemeMode.system; // No preference saved → follow device
+    } else {
+      _themeMode = savedDark ? ThemeMode.dark : ThemeMode.light;
+    }
     notifyListeners();
   }
 
   void toggleTheme(bool isDark) async {
     final shared = await SharedPreferences.getInstance();
-    bool updatedDark = await shared.setBool("isDart", isDark);
-    _themeMode = updatedDark ? ThemeMode.dark : ThemeMode.light;
+    await shared.setBool("isDark", isDark);
+    _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
     notifyListeners();
   }
 }

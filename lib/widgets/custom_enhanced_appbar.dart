@@ -33,7 +33,7 @@ class CustomEnhancedAppbar extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha:  0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -60,19 +60,20 @@ class CustomEnhancedAppbar extends StatelessWidget {
               color: isDarkMode ? Colors.white : Colors.black),
           onPressed: () => _showAppInfoDialog(context),
         ),
-        Padding(
-          padding: const EdgeInsets.only(right: 12.0),
-          child: Transform.scale(
-            scale: 0.85,
-            child: Switch.adaptive(
-              value: isDarkMode,
-              onChanged: (value) => themeProvider.toggleTheme(value),
-              activeColor: Colors.indigoAccent,
-              thumbColor: WidgetStatePropertyAll(
-                  isDarkMode ? Colors.white : Colors.indigoAccent),
-            ),
-          ),
-        ),
+        // Padding(
+        //   padding: const EdgeInsets.only(right: 12.0),
+        //   child: Transform.scale(
+        //     scale: 0.85,
+        //     child: Switch.adaptive(
+        //       value: isDarkMode,
+        //       onChanged: (value) => themeProvider.toggleTheme(value),
+        //       activeTrackColor: Colors.indigoAccent,
+        //       inactiveTrackColor: Colors.white,
+        //       thumbColor: WidgetStatePropertyAll(
+        //           isDarkMode ? Colors.white : Colors.indigoAccent),
+        //     ),
+        //   ),
+        // ),
       ],
     );
   }
