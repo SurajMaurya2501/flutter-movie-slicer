@@ -48,9 +48,9 @@ android {
    }
    buildTypes {
        release {
-        minifyEnabled false // Disable code shrinking
-        shrinkResources false // Disable resource shrinking
-        signingConfig signingConfigs.release
+           minifyEnabled false
+           shrinkResources false
+           signingConfig signingConfigs.release
        }
    }
 

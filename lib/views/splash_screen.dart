@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:video_cutter/views/caorusel_screen.dart';
+import 'package:video_cutter/views/carousel_screen.dart';
 import 'package:video_cutter/views/home_page.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -40,7 +40,7 @@ class _SplashScreenState extends State<SplashScreen>
         context,
         MaterialPageRoute(
           builder: (_) =>
-              hasSeenOnboarding ? const HomePage() : const CaoruselScreen(),
+              hasSeenOnboarding ? const HomePage() : const CarouselScreen(),
         ),
       );
     });

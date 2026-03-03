@@ -5,14 +5,14 @@ import 'package:video_cutter/widgets/custom_pageview_widget.dart';
 
 const _totalPages = 2;
 
-class CaoruselScreen extends StatefulWidget {
-  const CaoruselScreen({super.key});
+class CarouselScreen extends StatefulWidget {
+  const CarouselScreen({super.key});
 
   @override
-  State<CaoruselScreen> createState() => _CaoruselScreenState();
+  State<CarouselScreen> createState() => _CarouselScreenState();
 }
 
-class _CaoruselScreenState extends State<CaoruselScreen> {
+class _CarouselScreenState extends State<CarouselScreen> {
   final PageController _pageController = PageController();
   int _currentPageView = 0;
 
@@ -53,7 +53,7 @@ class _CaoruselScreenState extends State<CaoruselScreen> {
           child: Column(
             children: [
               SizedBox(
-                height: MediaQuery.sizeOf(context).height * 0.6,
+                height: MediaQuery.sizeOf(context).height * 0.7,
                 child: PageView(
                   controller: _pageController,
                   onPageChanged: (value) {
