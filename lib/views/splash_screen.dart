@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:video_cutter/views/caorusel_screen.dart';
 import 'package:video_cutter/views/home_page.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -30,10 +32,16 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    Timer(const Duration(seconds: 3), () {
+    Timer(const Duration(seconds: 3), () async {
+      final prefs = await SharedPreferences.getInstance();
+      final hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
+        MaterialPageRoute(
+          builder: (_) =>
+              hasSeenOnboarding ? const HomePage() : const CaoruselScreen(),
+        ),
       );
     });
   }
@@ -47,7 +55,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.black,
       body: Center(
         child: FadeTransition(
           opacity: _fadeAnimation,
