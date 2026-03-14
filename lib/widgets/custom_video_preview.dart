@@ -17,29 +17,38 @@ class CustomVideoPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Center(
-          child: videoController.value.isInitialized
-              ? videoController.value.aspectRatio < 0.6
-                  ? SizedBox(
-                      height: MediaQuery.sizeOf(context).height * 0.3,
-                      width: MediaQuery.sizeOf(context).width * 0.3,
-                      child: VideoPlayer(videoController))
-                  : AspectRatio(
-                      aspectRatio: videoController.value.aspectRatio,
-                      child: VideoPlayer(videoController),
-                    )
-              : Container(),
-        ),
-        Positioned.fill(
-            child: videoController.value.isPlaying == false
-                ? Icon(
-                    Icons.play_arrow,
-                    size: 60,
-                  )
-                : SizedBox.shrink()),
-      ],
+    final previewMaxHeight = MediaQuery.sizeOf(context).height * 0.3;
+    final rawAspectRatio = videoController.value.aspectRatio;
+    final aspectRatio = (rawAspectRatio.isFinite && rawAspectRatio > 0)
+        ? rawAspectRatio
+        : (16 / 9);
+
+    final child = videoController.value.isInitialized
+        ? VideoPlayer(videoController)
+        : const Center(child: CircularProgressIndicator());
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: previewMaxHeight),
+      child: Stack(
+        children: [
+          Center(
+            child: AspectRatio(
+              aspectRatio: aspectRatio,
+              child: child,
+            ),
+          ),
+          Positioned.fill(
+            child: videoController.value.isPlaying
+                ? const SizedBox.shrink()
+                : const Center(
+                    child: Icon(
+                      Icons.play_arrow,
+                      size: 60,
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

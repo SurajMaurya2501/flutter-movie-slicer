@@ -31,6 +31,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   final TextEditingController _secondsController = TextEditingController();
+  final ValueNotifier<double> _progressNotifier = ValueNotifier<double>(0.0);
   File? _videoFile;
   bool _isProcessing = false;
   String? _zipPath;
@@ -43,13 +44,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   String _currentOperation = '';
   // ... existing variables ...
   bool _shouldCancel = false;
-  double progress = 0.0;
   bool _highQualityMode = false;
   VideoPlayerController? videoController;
 
   @override
   void dispose() {
     videoController?.dispose();
+    _pulseController.dispose();
+    _secondsController.dispose();
+    _progressNotifier.dispose();
     super.dispose();
   }
 
@@ -135,6 +138,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       onPressed: () {
                         setState(() {
                           videoController?.pause();
+                          videoController?.dispose();
                           videoController = null;
                           _videoFile = null;
                         });
@@ -144,18 +148,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
                   SizedBox(height: 20),
 
-                  CustomProcessingCard(
-                    context: context,
-                    isDarkMode: isDarkMode,
-                    cancelProcess: _cancelProcess,
-                    currentOperation: _currentOperation,
-                    getRemainingTime: _getRemainingTime,
-                    isCreatingZip: _isCreatingZip,
-                    isProcessing: _isProcessing,
-                    progress: progress,
-                    pulseAnimation: _pulseAnimation,
-                    shouldCancel: _shouldCancel,
-                    splitAndZip: _splitAndZip,
+                  ValueListenableBuilder<double>(
+                    valueListenable: _progressNotifier,
+                    builder: (context, progressValue, _) {
+                      return CustomProcessingCard(
+                        context: context,
+                        isDarkMode: isDarkMode,
+                        cancelProcess: _cancelProcess,
+                        currentOperation: _currentOperation,
+                        getRemainingTime: _getRemainingTime,
+                        isCreatingZip: _isCreatingZip,
+                        isProcessing: _isProcessing,
+                        progress: progressValue,
+                        pulseAnimation: _pulseAnimation,
+                        shouldCancel: _shouldCancel,
+                        splitAndZip: _splitAndZip,
+                      );
+                    },
                   ),
 
                   // if (_zipPath != null) _buildCreateZipButton(context),
@@ -217,37 +226,45 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
 // Enhanced UI for the loading progress
   Widget _buildProcessingUI() {
-    return Column(
-      key: const ValueKey('processingUI'),
-      children: [
-        Stack(
-          alignment: Alignment.center,
+    return ValueListenableBuilder<double>(
+      valueListenable: _progressNotifier,
+      builder: (context, progressValue, _) {
+        return Column(
+          key: const ValueKey('processingUI'),
           children: [
-            SizedBox(
-              height: 56,
-              child: LinearProgressIndicator(
-                backgroundColor: Colors.grey[300],
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
-                borderRadius: BorderRadius.circular(12),
-              ),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  height: 56,
+                  child: LinearProgressIndicator(
+                    value: progressValue.clamp(0.0, 1.0),
+                    // Track should start black.
+                    backgroundColor: Colors.black,
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(Colors.green),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                Text(
+                  '${(progressValue * 100).toStringAsFixed(0)}%',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 16),
             Text(
-              '${(progress * 100).toStringAsFixed(0)}%',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+              _currentOperation,
+              style: const TextStyle(fontSize: 14, color: Colors.black54),
+              textAlign: TextAlign.center,
             ),
           ],
-        ),
-        const SizedBox(height: 16),
-        Text(
-          _currentOperation,
-          style: const TextStyle(fontSize: 14, color: Colors.black54),
-          textAlign: TextAlign.center,
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -477,20 +494,39 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
     if (result != null && result.files.single.path != null) {
       String path = result.files.single.path!;
-      _videoFile = File(path);
-      Duration? duration = await _getVideoDuration(_videoFile!);
+      final selectedFile = File(path);
+      final duration = await _getVideoDuration(selectedFile);
+
+      final oldController = videoController;
       videoController = null;
-      final newController = VideoPlayerController.file(_videoFile!);
+      oldController?.dispose();
+
+      if (!mounted) return;
+      setState(() {
+        _videoFile = selectedFile;
+        _videoDuration = duration;
+        _zipPath = null;
+      });
+
+      final newController = VideoPlayerController.file(selectedFile);
       try {
         await newController.initialize();
       } catch (e) {
         log('VideoPlayerController init error: $e');
       }
 
+      if (!mounted) {
+        newController.dispose();
+        return;
+      }
+
+      if (!newController.value.isInitialized) {
+        newController.dispose();
+        return;
+      }
+
       setState(() {
         videoController = newController;
-        _videoDuration = duration;
-        _zipPath = null;
       });
     }
   }
@@ -562,10 +598,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
     setState(() {
       _isProcessing = true;
-      progress = 0;
       _processingStartTime = DateTime.now();
       _currentOperation = 'Processing Video...';
     });
+
+    _progressNotifier.value = 0.0;
 
     final shared = await SharedPreferences.getInstance();
     await shared.setString("videoPath", _videoFile!.path);
@@ -624,12 +661,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           final time = statistics.getTime();
           if (time > 0) {
             final newProgress = (time / videoDuration).clamp(0.0, 1.0);
-            if (newProgress - progress > 0.01 || newProgress >= 1.0) {
-              setState(() {
-                progress = newProgress;
-                // _currentOperation =
-                //     'Creating zip (${(progress * 99).toStringAsFixed(1)}%)';
-              });
+            final current = _progressNotifier.value;
+            if ((newProgress - current).abs() > 0.01 || newProgress >= 1.0) {
+              _progressNotifier.value = newProgress;
+              log("Progress:$newProgress");
             }
           }
         }
@@ -653,6 +688,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       final returnCode = await session.getReturnCode();
 
       if (returnCode!.isValueSuccess()) {
+        _progressNotifier.value = 1.0;
         _showSuccessDialog(context, chunkFolder.path);
         _videoFile = null;
         _secondsController.clear();
@@ -661,7 +697,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         if (mounted) {
           _videoFile = null;
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Video Format Not Supported')),
+            SnackBar(content: Text('Video Splitting Has Stopped')),
           );
         }
       }
@@ -678,7 +714,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       if (mounted) {
         setState(() {
           _isProcessing = false;
-          progress = 1.0;
         });
       }
     }
@@ -728,10 +763,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       debugPrint("Error cancelling process: $e");
     } finally {
       if (mounted) {
+        _progressNotifier.value = 0.0;
         setState(() {
           _isProcessing = false;
           _shouldCancel = false;
-          progress = 0;
         });
       }
     }

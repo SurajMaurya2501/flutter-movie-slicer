@@ -26,8 +26,22 @@ class CustomProcessingCard extends StatelessWidget {
       required this.cancelProcess,
       super.key});
 
+  LinearGradient _progressGradient() {
+    if (isCreatingZip) {
+      return const LinearGradient(colors: [Colors.amber, Colors.orange]);
+    }
+    if (shouldCancel) {
+      return const LinearGradient(colors: [Colors.red, Colors.redAccent]);
+    }
+    return const LinearGradient(
+      colors: [Colors.indigoAccent, Colors.purpleAccent],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final clampedProgress = progress.isNaN ? 0.0 : progress.clamp(0.0, 1.0);
+
     return Column(
       children: [
         AnimatedContainer(
@@ -75,118 +89,114 @@ class CustomProcessingCard extends StatelessWidget {
             ),
           ),
         ),
-        // if (isProcessing) ...[
-        //   const SizedBox(height: 20),
-        //   Column(
-        //     children: [
-        //       // Progress bar with gradient
-        //       ClipRRect(
-        //         borderRadius: BorderRadius.circular(8),
-        //         child: AnimatedContainer(
-        //           duration: const Duration(milliseconds: 200),
-        //           height: 8,
-        //           width: double.infinity,
-        //           decoration: BoxDecoration(
-        //             color: isDarkMode ? Colors.grey[700] : Colors.grey[200],
-        //             borderRadius: BorderRadius.circular(8),
-        //           ),
-        //           child: Stack(
-        //             children: [
-        //               LayoutBuilder(
-        //                 builder: (context, constraints) {
-        //                   return AnimatedContainer(
-        //                     duration: const Duration(milliseconds: 200),
-        //                     width: constraints.maxWidth * progress,
-        //                     decoration: BoxDecoration(
-        //                       gradient: LinearGradient(
-        //                         colors: isCreatingZip
-        //                             ? [Colors.amber, Colors.orange]
-        //                             : shouldCancel
-        //                                 ? [Colors.red, Colors.redAccent]
-        //                                 : [
-        //                                     Colors.indigoAccent,
-        //                                     Colors.purpleAccent
-        //                                   ],
-        //                       ),
-        //                       borderRadius: BorderRadius.circular(8),
-        //                     ),
-        //                   );
-        //                 },
-        //               ),
-        //             ],
-        //           ),
-        //         ),
-        //       ),
-        //       const SizedBox(height: 12),
-        //       // Control buttons
-        //       Row(
-        //         mainAxisAlignment: MainAxisAlignment.center,
-        //         children: [
-        //           IconButton(
-        //             icon: const Icon(Icons.close, size: 28),
-        //             onPressed: !shouldCancel ? cancelProcess : null,
-        //             tooltip: 'Cancel',
-        //           ),
-        //         ],
-        //       ),
-        //       const SizedBox(height: 8),
-        //       // Status information
-        //       Row(
-        //         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        //         children: [
-        //           Text(
-        //             '${(progress * 100).toStringAsFixed(1)}%',
-        //             style: TextStyle(
-        //               fontSize: 12,
-        //               color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-        //             ),
-        //           ),
-        //           Text(
-        //             isCreatingZip
-        //                 ? 'Compressing chunks...'
-        //                 : shouldCancel
-        //                     ? 'Cancelling process...'
-        //                     : 'Splitting video...',
-        //             style: TextStyle(
-        //               fontSize: 12,
-        //               color: shouldCancel ? Colors.red : Colors.indigoAccent,
-        //               fontWeight: FontWeight.bold,
-        //             ),
-        //           ),
-        //           if (!shouldCancel)
-        //             Text(
-        //               getRemainingTime(progress),
-        //               style: TextStyle(
-        //                 fontSize: 12,
-        //                 color:
-        //                     isDarkMode ? Colors.grey[400] : Colors.grey[600],
-        //               ),
-        //             ),
-        //         ],
-        //       ),
-        //       if (isCreatingZip) ...[
-        //         const SizedBox(height: 16),
-        //         Row(
-        //           children: [
-        //             Icon(Icons.archive, size: 16, color: Colors.orange),
-        //             const SizedBox(width: 8),
-        //             Text(
-        //               'Finalizing ZIP file...',
-        //               style: TextStyle(
-        //                 color: Colors.orange,
-        //                 fontSize: 12,
-        //               ),
-        //             ),
-        //           ],
-        //         ),
-        //       ],
-        //     ],
-        //   ),
-        // ],
-        // SizedBox(
-        //   height: 20,
-        // )
+        if (isProcessing) ...[
+          const SizedBox(height: 16),
+          _GradientLinearProgressBar(
+            value: clampedProgress,
+            height: 10,
+            borderRadius: 8,
+            // Unfilled track should be black; fill is gradient.
+            backgroundColor: Colors.black,
+            gradient: _progressGradient(),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${(clampedProgress * 100).toStringAsFixed(1)}%',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+              Text(
+                shouldCancel
+                    ? 'Cancelling...'
+                    : isCreatingZip
+                        ? 'Creating ZIP...'
+                        : 'Splitting video...',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: shouldCancel ? Colors.red : Colors.indigoAccent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (!shouldCancel)
+                Text(
+                  getRemainingTime(clampedProgress),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: shouldCancel ? null : cancelProcess,
+              icon: const Icon(Icons.close, size: 18),
+              label: const Text('Cancel'),
+            ),
+          ),
+        ],
       ],
+    );
+  }
+}
+
+class _GradientLinearProgressBar extends StatelessWidget {
+  final double value;
+  final double height;
+  final double borderRadius;
+  final Color backgroundColor;
+  final Gradient gradient;
+
+  const _GradientLinearProgressBar({
+    required this.value,
+    required this.height,
+    required this.borderRadius,
+    required this.backgroundColor,
+    required this.gradient,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final clamped = value.isNaN ? 0.0 : value.clamp(0.0, 1.0);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: SizedBox(
+        height: height,
+        child: Stack(
+          children: [
+            Positioned.fill(child: ColoredBox(color: backgroundColor)),
+            // Animate the fill width without forcing a full-width constraint.
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0.0, end: clamped),
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOut,
+              builder: (context, animatedValue, child) {
+                return Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: animatedValue,
+                    heightFactor: 1.0,
+                    child: child,
+                  ),
+                );
+              },
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: gradient,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
