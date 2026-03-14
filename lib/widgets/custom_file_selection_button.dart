@@ -34,6 +34,7 @@ class CustomFileSelectionButton extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             minimumSize: const Size(double.infinity, 56),
             backgroundColor: Colors.indigoAccent,
+            disabledBackgroundColor: Colors.grey,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),

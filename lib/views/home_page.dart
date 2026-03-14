@@ -143,7 +143,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           _videoFile = null;
                         });
                       },
-                      pickVideo: _pickVideo,
+                      pickVideo: _videoFile != null ? null : _pickVideo,
                       videoFile: _videoFile),
 
                   SizedBox(height: 20),
@@ -162,7 +162,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         progress: progressValue,
                         pulseAnimation: _pulseAnimation,
                         shouldCancel: _shouldCancel,
-                        splitAndZip: _splitAndZip,
+                        splitAndZip: _videoFile == null ? null : _splitAndZip,
                       );
                     },
                   ),

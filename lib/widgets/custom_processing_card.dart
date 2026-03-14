@@ -41,18 +41,22 @@ class CustomProcessingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final clampedProgress = progress.isNaN ? 0.0 : progress.clamp(0.0, 1.0);
+    final isSplitEnabled = !isProcessing && splitAndZip != null;
 
     return Column(
       children: [
         AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: isProcessing
+            borderRadius: BorderRadius.circular(24),
+            color: isSplitEnabled
                 ? null
-                : LinearGradient(
+                : (isDarkMode ? Colors.grey[800] : Colors.grey[300]),
+            gradient: isSplitEnabled
+                ? const LinearGradient(
                     colors: [Colors.indigoAccent, Colors.purpleAccent],
-                  ),
+                  )
+                : null,
           ),
           child: ScaleTransition(
             scale: isProcessing ? pulseAnimation : AlwaysStoppedAnimation(1.0),
